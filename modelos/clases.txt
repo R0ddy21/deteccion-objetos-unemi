@@ -1,0 +1,13 @@
+fall-detected
+gloves
+goggles
+hardhat
+mask
+no-gloves
+no-goggles
+no-hardhat
+no-mask
+no-safety vest
+no_harness
+person
+safety vest

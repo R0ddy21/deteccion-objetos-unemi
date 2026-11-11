@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Historial de detecciones{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+  <h1 class="h4 mb-0">Historial de detecciones</h1>
+  <form method="get" class="d-flex flex-wrap gap-2">
+    <select name="objeto" class="form-select form-select-sm w-auto">
+      <option value="">Todos los objetos</option>
+      {% for valor, nombre in objetos %}<option value="{{ valor }}" {% if request.GET.objeto == valor %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+    <input type="date" name="fecha" value="{{ request.GET.fecha }}" class="form-control form-control-sm w-auto">
+    <button class="btn btn-sm btn-azul">Filtrar</button>
+    <a class="btn btn-sm btn-naranja" href="{% url 'exportar_csv' %}?{{ filtros }}">Exportar CSV</a>
+  </form>
+</div>
+<div class="tarjeta table-responsive">
+  <table class="table table-striped align-middle mb-0">
+    <thead><tr><th>ID</th><th>Fecha y hora</th><th>Objeto</th><th>Confianza</th><th>Captura</th><th>Usuario</th></tr></thead>
+    <tbody>
+    {% for d in pagina %}
+      <tr>
+        <td>{{ d.id }}</td><td>{{ d.fecha|date:"d/m/Y H:i:s" }}</td><td>{{ d.objeto }}</td><td>{{ d.confianza|floatformat:2 }}</td>
+        <td><a href="{{ d.imagen.url }}" target="_blank"><img src="{{ d.imagen.url }}" alt="Captura de {{ d.objeto }}" height="40" class="rounded"></a></td>
+        <td>{{ d.usuario.username }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="text-center text-muted py-4">Aún no hay detecciones. Guárdalas desde la pantalla de detección.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if pagina.paginator.num_pages > 1 %}
+<nav class="d-flex justify-content-center align-items-center gap-3 mt-3">
+  {% if pagina.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?{{ filtros }}&page={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+  <span class="small">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?{{ filtros }}&page={{ pagina.next_page_number }}">Siguiente</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

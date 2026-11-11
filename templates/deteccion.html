@@ -1,0 +1,127 @@
+﻿{% extends "base.html" %}
+{% block titulo %}Detección en tiempo real{% endblock %}
+{% block contenido %}
+{% csrf_token %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="visor" id="visor">
+      <span class="text-white-50">La cámara está apagada. Pulsa Iniciar.</span>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <button class="btn btn-success" id="btnIniciar">Iniciar</button>
+      <button class="btn btn-danger" id="btnDetener" disabled>Detener</button>
+      <button class="btn btn-outline-secondary" id="btnCapturar" disabled>Descargar captura</button>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="tarjeta p-3">
+      <h2 class="h6 mb-3">Objetos detectados</h2>
+      <div class="tarjeta contador mb-2"><span>Caída detectada</span><strong id="c0">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Guantes</span><strong id="c1">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Gafas de seguridad</span><strong id="c2">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Casco</span><strong id="c3">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Mascarilla</span><strong id="c4">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Sin guantes</span><strong id="c5">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Sin gafas</span><strong id="c6">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Sin casco</span><strong id="c7">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Sin mascarilla</span><strong id="c8">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Sin chaleco</span><strong id="c9">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Sin arnés</span><strong id="c10">0</strong></div>
+      <div class="tarjeta contador mb-2"><span>Persona</span><strong id="c11">0</strong></div>
+      <div class="tarjeta contador mb-3"><span>Chaleco de seguridad</span><strong id="c12">0</strong></div>
+
+      <label class="form-label small" for="conf">Confianza mínima: <b id="confVal">0.50</b></label>
+      <input type="range" class="form-range mb-3" id="conf" min="0.2" max="0.9" step="0.05" value="0.5">
+      <button class="btn btn-azul w-100" id="btnGuardar" disabled>Guardar detección</button>
+      <div class="small mt-2" id="mensaje" role="status"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+let timer = null;
+
+const etiquetas = [
+  'Caída detectada', 'Guantes', 'Gafas de seguridad', 'Casco',
+  'Mascarilla', 'Sin guantes', 'Sin gafas', 'Sin casco',
+  'Sin mascarilla', 'Sin chaleco', 'Sin arnés', 'Persona',
+  'Chaleco de seguridad'
+];
+
+function actualizarConteos(datos) {
+  etiquetas.forEach((etiqueta, i) => {
+    $('c' + i).textContent = datos[etiqueta] || 0;
+  });
+}
+
+function activo(on) {
+  $('btnIniciar').disabled = on;
+  $('btnDetener').disabled = !on;
+  $('btnGuardar').disabled = !on;
+  $('btnCapturar').disabled = !on;
+}
+
+function iniciar() {
+  $('visor').innerHTML = '<img id="video" alt="Video con detecciones">';
+  $('video').src = "{% url 'video_feed' %}?conf=" + $('conf').value + "&t=" + Date.now();
+  activo(true);
+  clearInterval(timer);
+  timer = setInterval(async () => {
+    try {
+      const respuesta = await fetch("{% url 'estado' %}");
+      const datos = await respuesta.json();
+      actualizarConteos(datos);
+    } catch (error) {
+      console.error(error);
+    }
+  }, 1000);
+}
+
+async function detener() {
+  clearInterval(timer);
+  $('visor').innerHTML = '<span class="text-white-50">La cámara está apagada. Pulsa Iniciar.</span>';
+  await fetch("{% url 'detener' %}", {
+    method: 'POST',
+    headers: {'X-CSRFToken': csrf}
+  });
+  activo(false);
+  etiquetas.forEach((_, i) => $('c' + i).textContent = 0);
+}
+
+async function guardar() {
+  const r = await fetch("{% url 'guardar' %}", {
+    method: 'POST',
+    headers: {'X-CSRFToken': csrf}
+  });
+  const d = await r.json();
+  $('mensaje').className = 'small mt-2 ' + (d.ok ? 'text-success' : 'text-danger');
+  $('mensaje').textContent = d.mensaje;
+}
+
+function capturar() {
+  const img = $('video');
+  if (!img || !img.naturalWidth) return;
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  c.getContext('2d').drawImage(img, 0, 0);
+  const a = document.createElement('a');
+  a.href = c.toDataURL('image/jpeg');
+  a.download = 'captura.jpg';
+  a.click();
+}
+
+$('conf').addEventListener('input', () => {
+  $('confVal').textContent = Number($('conf').value).toFixed(2);
+});
+$('conf').addEventListener('change', () => {
+  if (!$('btnDetener').disabled) iniciar();
+});
+$('btnIniciar').onclick = iniciar;
+$('btnDetener').onclick = detener;
+$('btnGuardar').onclick = guardar;
+$('btnCapturar').onclick = capturar;
+</script>
+{% endblock %}
